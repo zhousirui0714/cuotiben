@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}错题详情 - 工科数学分析错题本{% endblock %}
+
+{% block content %}
+<div id="mistake-detail">
+    <div class="empty-state">
+        <div class="empty-state-icon">📚</div>
+        <p>正在加载错题详情...</p>
+    </div>
+</div>
+
+<!-- 复习记录模态框 -->
+<div id="review-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 30px; border-radius: 15px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
+        <h3 style="margin-bottom: 20px;">📝 添加复习记录</h3>
+        <form id="review-form">
+            <div class="form-group">
+                <label>复习后掌握程度</label>
+                <select id="review-mastery" class="form-control">
+                    <option value="not_mastered">❌ 仍未掌握</option>
+                    <option value="reviewing">🔄 需要继续复习</option>
+                    <option value="mastered">✅ 已掌握</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>复习笔记</label>
+                <textarea id="review-notes" rows="4" placeholder="记录本次复习的收获和需要注意的地方..."></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeReviewModal()">取消</button>
+                <button type="submit" class="btn">保存记录</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const mistakeId = '{{ mistake_id }}';
+
+// 加载错题详情
+async function loadMistakeDetail() {
+    const container = document.getElementById('mistake-detail');
+    
+    try {
+        const response = await fetch(`/api/mistakes/${mistakeId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            renderMistakeDetail(result.data);
+        } else {
+            container.innerHTML = `<div class="alert alert-error">加载失败: ${result.error}</div>`;
+        }
+    } catch (error) {
+        container.innerHTML = `<div class="alert alert-error">网络错误: ${error.message}</div>`;
+    }
+}
+
+// 渲染错题详情
+function renderMistakeDetail(mistake) {
+    const container = document.getElementById('mistake-detail');
+    
+    const masteryClass = {
+        'not_mastered': 'tag-danger',
+        'reviewing': 'tag-warning',
+        'mastered': 'tag-success'
+    }[mistake.mastery_level] || 'tag';
+    
+    const masteryText = {
+        'not_mastered': '❌ 未掌握',
+        'reviewing': '🔄 复习中',
+        'mastered': '✅ 已掌握'
+    }[mistake.mastery_level] || '未知';
+    
+    const knowledgeName = mistake.knowledge_points?.name || '未分类';
+    const typeName = mistake.question_types?.name || '未分类';
+    
+    let html = `
+        <div style="margin-bottom: 20px;">
+            <a href="/list" class="btn btn-secondary" style="margin-bottom: 20px;">← 返回列表</a>
+        </div>
+        
+        <h2 style="margin-bottom: 15px;">${mistake.title}</h2>
+        
+        <div class="card-meta" style="margin-bottom: 20px;">
+            <span class="tag">${knowledgeName}</span>
+            <span class="tag">${typeName}</span>
+            <span class="tag ${masteryClass}">${masteryText}</span>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div class="stat-card" style="padding: 15px;">
+                <div class="stat-number" style="font-size: 24px;">${mistake.review_count || 0}</div>
+                <div class="stat-label">复习次数</div>
+            </div>
+            <div class="stat-card" style="padding: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="stat-number" style="font-size: 24px;">${mistake.last_reviewed_at ? new Date(mistake.last_reviewed_at).toLocaleDateString() : '从未'}</div>
+                <div class="stat-label">最后复习</div>
+            </div>
+        </div>
+    `;
+    
+    // 题目内容
+    if (mistake.question_text || mistake.question_image_url) {
+        html += `
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-title">📝 题目</div>
+                ${mistake.question_text ? `<p style="margin-bottom: 15px; line-height: 1.6;">${mistake.question_text}</p>` : ''}
+                ${mistake.question_image_url ? `<img src="${mistake.question_image_url}" style="max-width: 100%; border-radius: 8px;">` : ''}
+            </div>
+        `;
+    }
+    
+    // 解答
+    if (mistake.answer_text || mistake.answer_image_url) {
+        html += `
+            <div class="card" style="margin-bottom: 20px; border-left-color: #4caf50;">
+                <div class="card-title">✅ 正确解答</div>
+                ${mistake.answer_text ? `<p style="margin-bottom: 15px; line-height: 1.6;">${mistake.answer_text}</p>` : ''}
+                ${mistake.answer_image_url ? `<img src="${mistake.answer_image_url}" style="max-width: 100%; border-radius: 8px;">` : ''}
+            </div>
+        `;
+    }
+    
+    // 错误原因
+    html += `
+        <div class="card" style="margin-bottom: 20px; border-left-color: #f44336;">
+            <div class="card-title">❌ 错误原因分析</div>
+            <p style="line-height: 1.6;">${mistake.error_reason}</p>
+        </div>
+    `;
+    
+    // 关联考点
+    if (mistake.related_points && mistake.related_points.length > 0) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <strong>🔗 关联考点:</strong>
+                <div style="margin-top: 10px;">
+                    ${mistake.related_points.map(point => `<span class="tag" style="margin-right: 5px;">${point}</span>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // 操作按钮
+    html += `
+        <div style="display: flex; gap: 10px; margin: 30px 0;">
+            <button onclick="openReviewModal()" class="btn" style="font-size: 16px;">📝 记录复习</button>
+            <a href="/add" class="btn btn-secondary" style="font-size: 16px;">➕ 录入新错题</a>
+        </div>
+    `;
+    
+    // 复习记录
+    if (mistake.review_logs && mistake.review_logs.length > 0) {
+        html += `
+            <h3 style="margin: 30px 0 15px;">📚 复习记录</h3>
+        `;
+        
+        mistake.review_logs.forEach(log => {
+            const logMasteryText = {
+                'not_mastered': '❌ 仍未掌握',
+                'reviewing': '🔄 需要继续复习',
+                'mastered': '✅ 已掌握'
+            }[log.mastery_level_after] || '未知';
+            
+            html += `
+                <div class="card" style="margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="color: #999; font-size: 12px;">${new Date(log.created_at).toLocaleString()}</span>
+                        <span class="tag">${logMasteryText}</span>
+                    </div>
+                    ${log.review_notes ? `<p style="line-height: 1.5;">${log.review_notes}</p>` : '<p style="color: #999;">无笔记</p>'}
+                </div>
+            `;
+        });
+    }
+    
+    container.innerHTML = html;
+}
+
+// 打开复习模态框
+function openReviewModal() {
+    document.getElementById('review-modal').style.display = 'flex';
+}
+
+// 关闭复习模态框
+function closeReviewModal() {
+    document.getElementById('review-modal').style.display = 'none';
+    document.getElementById('review-form').reset();
+}
+
+// 提交复习记录
+document.getElementById('review-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const data = {
+        mastery_level_after: document.getElementById('review-mastery').value,
+        review_notes: document.getElementById('review-notes').value
+    };
+    
+    try {
+        const response = await fetch(`/api/mistakes/${mistakeId}/review`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('复习记录添加成功！');
+            closeReviewModal();
+            loadMistakeDetail();
+        } else {
+            alert('添加失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('网络错误: ' + error.message);
+    }
+});
+
+// 点击模态框外部关闭
+document.getElementById('review-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeReviewModal();
+    }
+});
+
+// 页面加载时获取数据
+loadMistakeDetail();
+</script>
+{% endblock %}

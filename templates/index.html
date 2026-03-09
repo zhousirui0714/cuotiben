@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - 工科数学分析错题本{% endblock %}
+
+{% block content %}
+<div style="text-align: center; padding: 40px 20px;">
+    <h1 style="font-size: 36px; margin-bottom: 20px; color: #333;">🎯 工科数学分析错题本</h1>
+    <p style="font-size: 18px; color: #666; margin-bottom: 40px; line-height: 1.6;">
+        专为工科大一下学生设计<br>
+        系统化整理错题，告别重复犯错，高效复习提升
+    </p>
+    
+    <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 50px;">
+        <a href="/add" class="btn" style="font-size: 18px; padding: 15px 30px;">
+            ✏️ 录入错题
+        </a>
+        <a href="/list" class="btn btn-secondary" style="font-size: 18px; padding: 15px 30px;">
+            📋 查看错题
+        </a>
+    </div>
+    
+    <div class="stats-grid" style="max-width: 900px; margin: 0 auto;">
+        <div class="stat-card">
+            <div class="stat-number" id="total-count">0</div>
+            <div class="stat-label">总错题数</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <div class="stat-number" id="not-mastered-count">0</div>
+            <div class="stat-label">待掌握</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <div class="stat-number" id="reviewing-count">0</div>
+            <div class="stat-label">复习中</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+            <div class="stat-number" id="mastered-count">0</div>
+            <div class="stat-label">已掌握</div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 50px; text-align: left; max-width: 800px; margin-left: auto; margin-right: auto;">
+        <h2 style="font-size: 24px; margin-bottom: 20px; color: #333;">✨ 核心功能</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+            <div class="card">
+                <div class="card-title">📷 拍照录入</div>
+                <p style="color: #666;">支持拍照或上传图片，快速记录错题</p>
+            </div>
+            <div class="card">
+                <div class="card-title">🏷️ 智能分类</div>
+                <p style="color: #666;">按知识点、题型自动分类，方便查找</p>
+            </div>
+            <div class="card">
+                <div class="card-title">📊 进度追踪</div>
+                <p style="color: #666;">实时统计掌握程度，可视化学习进度</p>
+            </div>
+            <div class="card">
+                <div class="card-title">🔄 复习提醒</div>
+                <p style="color: #666;">智能提醒易错点，避免重复犯错</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 加载统计数据
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const result = await response.json();
+        
+        if (result.success) {
+            const data = result.data;
+            document.getElementById('total-count').textContent = data.total_mistakes || 0;
+            document.getElementById('not-mastered-count').textContent = data.mastery_stats?.not_mastered || 0;
+            document.getElementById('reviewing-count').textContent = data.mastery_stats?.reviewing || 0;
+            document.getElementById('mastered-count').textContent = data.mastery_stats?.mastered || 0;
+        }
+    } catch (error) {
+        console.error('加载统计数据失败:', error);
+    }
+}
+
+// 页面加载时获取数据
+loadStats();
+</script>
+{% endblock %}

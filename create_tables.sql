@@ -1,64 +1,95 @@
--- Supabase 数据库建表脚本
--- 请在 Supabase 控制台的 SQL 编辑器中执行此脚本
--- 访问: https://suprozkxuccgvktyklodo.supabase.co/sql
+-- 工科数学分析错题本数据库表结构
+-- 在 Supabase SQL Editor 中执行
 
--- 创建用户表
-CREATE TABLE IF NOT EXISTS users (
+-- 1. 知识点分类表
+CREATE TABLE IF NOT EXISTS knowledge_points (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 创建文章表
-CREATE TABLE IF NOT EXISTS posts (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    content TEXT,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 创建评论表
-CREATE TABLE IF NOT EXISTS comments (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    content TEXT NOT NULL,
-    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    category VARCHAR(50) NOT NULL, -- 如：极限、导数、积分、级数等
+    description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 2. 题型分类表
+CREATE TABLE IF NOT EXISTS question_types (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. 错题表
+CREATE TABLE IF NOT EXISTS mistakes (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    question_text TEXT, -- 题目文本
+    question_image_url TEXT, -- 题目图片URL
+    answer_text TEXT, -- 解答文本
+    answer_image_url TEXT, -- 解答图片URL
+    error_reason TEXT NOT NULL, -- 错误原因
+    knowledge_point_id UUID REFERENCES knowledge_points(id),
+    question_type_id UUID REFERENCES question_types(id),
+    mastery_level VARCHAR(20) DEFAULT 'not_mastered' CHECK (mastery_level IN ('not_mastered', 'reviewing', 'mastered')), -- 掌握程度
+    related_points TEXT[], -- 关联考点（数组）
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    review_count INTEGER DEFAULT 0, -- 复习次数
+    last_reviewed_at TIMESTAMP WITH TIME ZONE -- 最后复习时间
+);
+
+-- 4. 复习记录表
+CREATE TABLE IF NOT EXISTS review_logs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    mistake_id UUID REFERENCES mistakes(id) ON DELETE CASCADE,
+    review_notes TEXT, -- 复习笔记
+    mastery_level_after VARCHAR(20) CHECK (mastery_level_after IN ('not_mastered', 'reviewing', 'mastered')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. 插入默认知识点数据
+INSERT INTO knowledge_points (name, category, description) VALUES
+('函数极限', '极限与连续', '函数在某点的极限概念与计算'),
+('数列极限', '极限与连续', '数列极限的定义与性质'),
+('连续性', '极限与连续', '函数的连续性与间断点'),
+('导数定义', '导数与微分', '导数的定义与几何意义'),
+('求导法则', '导数与微分', '基本求导公式与运算法则'),
+('微分中值定理', '导数与微分', '罗尔定理、拉格朗日定理等'),
+('不定积分', '积分学', '不定积分的概念与计算'),
+('定积分', '积分学', '定积分的定义与性质'),
+('重积分', '积分学', '二重积分与三重积分'),
+('级数收敛', '级数', '数项级数的收敛判别法'),
+('幂级数', '级数', '幂级数的收敛域与和函数'),
+('傅里叶级数', '级数', '函数的傅里叶展开')
+ON CONFLICT DO NOTHING;
+
+-- 6. 插入默认题型数据
+INSERT INTO question_types (name, description) VALUES
+('计算题', '需要进行数学计算求解的题目'),
+('证明题', '需要逻辑推理和证明的题目'),
+('概念题', '考察概念理解的题目'),
+('应用题', '实际应用场景的数学建模题'),
+('选择题', '从选项中选择正确答案'),
+('填空题', '填写正确答案的题目')
+ON CONFLICT DO NOTHING;
+
 -- 创建索引以提高查询性能
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
-CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
-CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_mistakes_knowledge_point ON mistakes(knowledge_point_id);
+CREATE INDEX IF NOT EXISTS idx_mistakes_question_type ON mistakes(question_type_id);
+CREATE INDEX IF NOT EXISTS idx_mistakes_mastery_level ON mistakes(mastery_level);
+CREATE INDEX IF NOT EXISTS idx_mistakes_created_at ON mistakes(created_at);
+CREATE INDEX IF NOT EXISTS idx_review_logs_mistake_id ON review_logs(mistake_id);
 
 -- 启用行级安全性 (RLS)
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE knowledge_points ENABLE ROW LEVEL SECURITY;
+ALTER TABLE question_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mistakes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE review_logs ENABLE ROW LEVEL SECURITY;
 
--- 创建 RLS 策略
--- 用户表策略
-CREATE POLICY "用户可以查看所有用户" ON users FOR SELECT USING (true);
-CREATE POLICY "用户可以插入自己的记录" ON users FOR INSERT WITH CHECK (true);
-CREATE POLICY "用户可以更新自己的记录" ON users FOR UPDATE USING (true);
-
--- 文章表策略
-CREATE POLICY "所有人可以查看文章" ON posts FOR SELECT USING (true);
-CREATE POLICY "认证用户可以创建文章" ON posts FOR INSERT WITH CHECK (true);
-CREATE POLICY "用户可以更新自己的文章" ON posts FOR UPDATE USING (true);
-CREATE POLICY "用户可以删除自己的文章" ON posts FOR DELETE USING (true);
-
--- 评论表策略
-CREATE POLICY "所有人可以查看评论" ON comments FOR SELECT USING (true);
-CREATE POLICY "认证用户可以创建评论" ON comments FOR INSERT WITH CHECK (true);
-CREATE POLICY "用户可以删除自己的评论" ON comments FOR DELETE USING (true);
+-- 创建 RLS 策略 - 允许所有操作（简化版，实际应用应该根据用户身份限制）
+CREATE POLICY "允许所有操作" ON knowledge_points FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "允许所有操作" ON question_types FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "允许所有操作" ON mistakes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "允许所有操作" ON review_logs FOR ALL USING (true) WITH CHECK (true);
 
 -- 创建更新时间戳的函数
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -69,24 +100,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 为表创建触发器
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 为 mistakes 表创建触发器
+DROP TRIGGER IF EXISTS update_mistakes_updated_at ON mistakes;
+CREATE TRIGGER update_mistakes_updated_at 
+    BEFORE UPDATE ON mistakes 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- 插入测试数据
-INSERT INTO users (email, username, password_hash) VALUES
-('test@example.com', 'testuser', 'hashed_password_123')
-ON CONFLICT (email) DO NOTHING;
-
--- 查询创建的表
+-- 查询创建的表结构
 SELECT 
     table_name,
     column_name,
     data_type,
     is_nullable
 FROM information_schema.columns
-WHERE table_name IN ('users', 'posts', 'comments')
+WHERE table_name IN ('knowledge_points', 'question_types', 'mistakes', 'review_logs')
 ORDER BY table_name, ordinal_position;

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}错题列表 - 工科数学分析错题本{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 20px;">📋 错题列表</h2>
+
+<!-- 筛选栏 -->
+<div class="filter-bar">
+    <select id="filter-knowledge">
+        <option value="">所有知识点</option>
+    </select>
+    <select id="filter-type">
+        <option value="">所有题型</option>
+    </select>
+    <select id="filter-mastery">
+        <option value="">所有掌握程度</option>
+        <option value="not_mastered">❌ 未掌握</option>
+        <option value="reviewing">🔄 复习中</option>
+        <option value="mastered">✅ 已掌握</option>
+    </select>
+    <button class="btn" onclick="loadMistakes()">🔍 筛选</button>
+    <button class="btn btn-secondary" onclick="clearFilters()">清除筛选</button>
+</div>
+
+<!-- 错题列表 -->
+<div id="mistakes-list">
+    <div class="empty-state">
+        <div class="empty-state-icon">📚</div>
+        <p>正在加载错题...</p>
+    </div>
+</div>
+
+<script>
+let allMistakes = [];
+
+// 加载筛选选项
+async function loadFilterOptions() {
+    try {
+        // 加载知识点
+        const kpResponse = await fetch('/api/knowledge-points');
+        const kpResult = await kpResponse.json();
+        if (kpResult.success) {
+            const kpSelect = document.getElementById('filter-knowledge');
+            kpResult.data.forEach(kp => {
+                const option = document.createElement('option');
+                option.value = kp.id;
+                option.textContent = `${kp.category} - ${kp.name}`;
+                kpSelect.appendChild(option);
+            });
+        }
+        
+        // 加载题型
+        const qtResponse = await fetch('/api/question-types');
+        const qtResult = await qtResponse.json();
+        if (qtResult.success) {
+            const qtSelect = document.getElementById('filter-type');
+            qtResult.data.forEach(qt => {
+                const option = document.createElement('option');
+                option.value = qt.id;
+                option.textContent = qt.name;
+                qtSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('加载筛选选项失败:', error);
+    }
+}
+
+// 加载错题列表
+async function loadMistakes() {
+    const listContainer = document.getElementById('mistakes-list');
+    listContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📚</div><p>正在加载...</p></div>';
+    
+    try {
+        // 构建查询参数
+        const params = new URLSearchParams();
+        const knowledgeId = document.getElementById('filter-knowledge').value;
+        const typeId = document.getElementById('filter-type').value;
+        const mastery = document.getElementById('filter-mastery').value;
+        
+        if (knowledgeId) params.append('knowledge_point_id', knowledgeId);
+        if (typeId) params.append('question_type_id', typeId);
+        if (mastery) params.append('mastery_level', mastery);
+        
+        const response = await fetch(`/api/mistakes?${params}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            allMistakes = result.data;
+            renderMistakes(allMistakes);
+        } else {
+            listContainer.innerHTML = `<div class="alert alert-error">加载失败: ${result.error}</div>`;
+        }
+    } catch (error) {
+        listContainer.innerHTML = `<div class="alert alert-error">网络错误: ${error.message}</div>`;
+    }
+}
+
+// 渲染错题列表
+function renderMistakes(mistakes) {
+    const listContainer = document.getElementById('mistakes-list');
+    
+    if (mistakes.length === 0) {
+        listContainer.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <p>暂无错题记录</p>
+                <a href="/add" class="btn" style="margin-top: 20px;">录入第一道错题</a>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    mistakes.forEach(mistake => {
+        const masteryClass = {
+            'not_mastered': 'tag-danger',
+            'reviewing': 'tag-warning',
+            'mastered': 'tag-success'
+        }[mistake.mastery_level] || 'tag';
+        
+        const masteryText = {
+            'not_mastered': '❌ 未掌握',
+            'reviewing': '🔄 复习中',
+            'mastered': '✅ 已掌握'
+        }[mistake.mastery_level] || '未知';
+        
+        const knowledgeName = mistake.knowledge_points?.name || '未分类';
+        const typeName = mistake.question_types?.name || '未分类';
+        
+        html += `
+            <div class="card">
+                <div class="card-title">${mistake.title}</div>
+                <div class="card-meta">
+                    <span class="tag">${knowledgeName}</span>
+                    <span class="tag">${typeName}</span>
+                    <span class="tag ${masteryClass}">${masteryText}</span>
+                    <span style="color: #999; font-size: 12px;">复习 ${mistake.review_count || 0} 次</span>
+                </div>
+                <p style="color: #666; margin-bottom: 10px; line-height: 1.5;">
+                    <strong>错误原因:</strong> ${mistake.error_reason?.substring(0, 100)}${mistake.error_reason?.length > 100 ? '...' : ''}
+                </p>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <a href="/review/${mistake.id}" class="btn" style="padding: 8px 16px; font-size: 14px;">📖 查看详情</a>
+                    <button onclick="deleteMistake('${mistake.id}')" class="btn btn-danger" style="padding: 8px 16px; font-size: 14px;">🗑️ 删除</button>
+                </div>
+            </div>
+        `;
+    });
+    
+    listContainer.innerHTML = html;
+}
+
+// 清除筛选
+function clearFilters() {
+    document.getElementById('filter-knowledge').value = '';
+    document.getElementById('filter-type').value = '';
+    document.getElementById('filter-mastery').value = '';
+    loadMistakes();
+}
+
+// 删除错题
+async function deleteMistake(id) {
+    if (!confirm('确定要删除这道错题吗？')) return;
+    
+    try {
+        const response = await fetch(`/api/mistakes/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('删除成功！');
+            loadMistakes();
+        } else {
+            alert('删除失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('网络错误: ' + error.message);
+    }
+}
+
+// 页面加载时获取数据
+loadFilterOptions();
+loadMistakes();
+</script>
+{% endblock %}

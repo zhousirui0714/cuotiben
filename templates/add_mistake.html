@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}录入错题 - 工科数学分析错题本{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 30px;">✏️ 录入新错题</h2>
+
+<form id="mistake-form" enctype="multipart/form-data">
+    <div class="form-group">
+        <label for="title">错题标题 *</label>
+        <input type="text" id="title" name="title" required placeholder="例如：极限计算错误 - 洛必达法则应用">
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="form-group">
+            <label for="knowledge_point_id">知识点 *</label>
+            <select id="knowledge_point_id" name="knowledge_point_id" required>
+                <option value="">请选择知识点</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="question_type_id">题型 *</label>
+            <select id="question_type_id" name="question_type_id" required>
+                <option value="">请选择题型</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label for="question_text">题目内容</label>
+        <textarea id="question_text" name="question_text" placeholder="输入题目文字内容（可选）"></textarea>
+    </div>
+    
+    <div class="form-group">
+        <label>题目图片（拍照或上传）</label>
+        <div class="upload-area" onclick="document.getElementById('question_image').click()">
+            <div style="font-size: 48px; margin-bottom: 10px;">📷</div>
+            <p>点击拍照或上传题目图片</p>
+            <p style="font-size: 12px; color: #999; margin-top: 10px;">支持 JPG、PNG 格式</p>
+        </div>
+        <input type="file" id="question_image" name="question_image" accept="image/*" style="display: none;" onchange="previewImage(this, 'question-preview')">
+        <img id="question-preview" class="image-preview" style="display: none;">
+    </div>
+    
+    <div class="form-group">
+        <label for="answer_text">解答过程</label>
+        <textarea id="answer_text" name="answer_text" placeholder="输入正确解答过程（可选）"></textarea>
+    </div>
+    
+    <div class="form-group">
+        <label>解答图片（可选）</label>
+        <div class="upload-area" onclick="document.getElementById('answer_image').click()">
+            <div style="font-size: 48px; margin-bottom: 10px;">📝</div>
+            <p>点击上传解答图片</p>
+        </div>
+        <input type="file" id="answer_image" name="answer_image" accept="image/*" style="display: none;" onchange="previewImage(this, 'answer-preview')">
+        <img id="answer-preview" class="image-preview" style="display: none;">
+    </div>
+    
+    <div class="form-group">
+        <label for="error_reason">错误原因 *</label>
+        <textarea id="error_reason" name="error_reason" required placeholder="分析错误原因，例如：
+- 概念理解不清
+- 计算过程粗心
+- 公式记忆错误
+- 解题思路偏差"></textarea>
+    </div>
+    
+    <div class="form-group">
+        <label for="mastery_level">当前掌握程度</label>
+        <select id="mastery_level" name="mastery_level">
+            <option value="not_mastered">❌ 未掌握</option>
+            <option value="reviewing">🔄 复习中</option>
+            <option value="mastered">✅ 已掌握</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="related_points">关联考点（用逗号分隔）</label>
+        <input type="text" id="related_points" name="related_points" placeholder="例如：导数定义, 链式法则, 复合函数求导">
+    </div>
+    
+    <div style="display: flex; gap: 15px; margin-top: 30px;">
+        <button type="submit" class="btn">💾 保存错题</button>
+        <a href="/" class="btn btn-secondary">取消</a>
+    </div>
+</form>
+
+<div id="message" style="margin-top: 20px;"></div>
+
+<script>
+// 加载知识点和题型选项
+async function loadOptions() {
+    try {
+        // 加载知识点
+        const kpResponse = await fetch('/api/knowledge-points');
+        const kpResult = await kpResponse.json();
+        if (kpResult.success) {
+            const kpSelect = document.getElementById('knowledge_point_id');
+            kpResult.data.forEach(kp => {
+                const option = document.createElement('option');
+                option.value = kp.id;
+                option.textContent = `${kp.category} - ${kp.name}`;
+                kpSelect.appendChild(option);
+            });
+        }
+        
+        // 加载题型
+        const qtResponse = await fetch('/api/question-types');
+        const qtResult = await qtResponse.json();
+        if (qtResult.success) {
+            const qtSelect = document.getElementById('question_type_id');
+            qtResult.data.forEach(qt => {
+                const option = document.createElement('option');
+                option.value = qt.id;
+                option.textContent = qt.name;
+                qtSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('加载选项失败:', error);
+    }
+}
+
+// 图片预览
+function previewImage(input, previewId) {
+    const preview = document.getElementById(previewId);
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// 表单提交
+document.getElementById('mistake-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const messageDiv = document.getElementById('message');
+    
+    try {
+        const response = await fetch('/api/mistakes', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            messageDiv.innerHTML = '<div class="alert alert-success">✅ 错题录入成功！</div>';
+            setTimeout(() => {
+                window.location.href = '/list';
+            }, 1500);
+        } else {
+            messageDiv.innerHTML = `<div class="alert alert-error">❌ 保存失败: ${result.error}</div>`;
+        }
+    } catch (error) {
+        messageDiv.innerHTML = `<div class="alert alert-error">❌ 网络错误: ${error.message}</div>`;
+    }
+});
+
+// 页面加载时获取选项
+loadOptions();
+</script>
+{% endblock %}

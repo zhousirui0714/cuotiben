@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}进度统计 - 工科数学分析错题本{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 30px;">📊 学习进度统计</h2>
+
+<!-- 总体统计 -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number" id="total-count">0</div>
+        <div class="stat-label">总错题数</div>
+    </div>
+    <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <div class="stat-number" id="not-mastered-count">0</div>
+        <div class="stat-label">待掌握</div>
+    </div>
+    <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+        <div class="stat-number" id="reviewing-count">0</div>
+        <div class="stat-label">复习中</div>
+    </div>
+    <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+        <div class="stat-number" id="mastered-count">0</div>
+        <div class="stat-label">已掌握</div>
+    </div>
+</div>
+
+<!-- 掌握程度分布 -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+    <div class="card">
+        <div class="card-title">📈 掌握程度分布</div>
+        <div id="mastery-chart" style="margin-top: 20px;">
+            <div class="empty-state" style="padding: 30px;">
+                <p>加载中...</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">📚 知识点分布 TOP 5</div>
+        <div id="knowledge-chart" style="margin-top: 20px;">
+            <div class="empty-state" style="padding: 30px;">
+                <p>加载中...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 学习建议 -->
+<div class="card" style="border-left-color: #ff9800;">
+    <div class="card-title">💡 学习建议</div>
+    <div id="suggestions" style="margin-top: 15px;">
+        <p>正在分析你的学习数据...</p>
+    </div>
+</div>
+
+<script>
+// 加载统计数据
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const result = await response.json();
+        
+        if (result.success) {
+            const data = result.data;
+            
+            // 更新总体统计
+            document.getElementById('total-count').textContent = data.total_mistakes || 0;
+            document.getElementById('not-mastered-count').textContent = data.mastery_stats?.not_mastered || 0;
+            document.getElementById('reviewing-count').textContent = data.mastery_stats?.reviewing || 0;
+            document.getElementById('mastered-count').textContent = data.mastery_stats?.mastered || 0;
+            
+            // 渲染掌握程度分布
+            renderMasteryChart(data.mastery_stats);
+            
+            // 渲染知识点分布
+            renderKnowledgeChart(data.knowledge_stats);
+            
+            // 生成学习建议
+            generateSuggestions(data);
+        }
+    } catch (error) {
+        console.error('加载统计数据失败:', error);
+    }
+}
+
+// 渲染掌握程度分布
+function renderMasteryChart(masteryStats) {
+    const container = document.getElementById('mastery-chart');
+    
+    if (!masteryStats || Object.keys(masteryStats).length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999;">暂无数据</p>';
+        return;
+    }
+    
+    const total = Object.values(masteryStats).reduce((a, b) => a + b, 0);
+    
+    const labels = {
+        'not_mastered': '未掌握',
+        'reviewing': '复习中',
+        'mastered': '已掌握'
+    };
+    
+    const colors = {
+        'not_mastered': '#f5576c',
+        'reviewing': '#4facfe',
+        'mastered': '#43e97b'
+    };
+    
+    let html = '';
+    for (const [key, value] of Object.entries(masteryStats)) {
+        const percentage = ((value / total) * 100).toFixed(1);
+        html += `
+            <div style="margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>${labels[key] || key}</span>
+                    <span>${value} 道 (${percentage}%)</span>
+                </div>
+                <div style="background: #e0e0e0; border-radius: 10px; height: 20px; overflow: hidden;">
+                    <div style="background: ${colors[key] || '#667eea'}; height: 100%; width: ${percentage}%; border-radius: 10px; transition: width 0.5s;"></div>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+// 渲染知识点分布
+function renderKnowledgeChart(knowledgeStats) {
+    const container = document.getElementById('knowledge-chart');
+    
+    if (!knowledgeStats || Object.keys(knowledgeStats).length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999;">暂无数据</p>';
+        return;
+    }
+    
+    // 排序并取前5
+    const sorted = Object.entries(knowledgeStats)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+    
+    const max = sorted[0][1];
+    
+    let html = '';
+    sorted.forEach(([name, count], index) => {
+        const percentage = ((count / max) * 100).toFixed(1);
+        html += `
+            <div style="margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>${index + 1}. ${name}</span>
+                    <span>${count} 道</span>
+                </div>
+                <div style="background: #e0e0e0; border-radius: 10px; height: 20px; overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: ${percentage}%; border-radius: 10px; transition: width 0.5s;"></div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// 生成学习建议
+function generateSuggestions(data) {
+    const container = document.getElementById('suggestions');
+    const suggestions = [];
+    
+    const total = data.total_mistakes || 0;
+    const notMastered = data.mastery_stats?.not_mastered || 0;
+    const reviewing = data.mastery_stats?.reviewing || 0;
+    const mastered = data.mastery_stats?.mastered || 0;
+    
+    if (total === 0) {
+        container.innerHTML = '<p>📚 还没有录入错题，快去录入第一道错题吧！</p>';
+        return;
+    }
+    
+    // 根据掌握程度给出建议
+    if (notMastered > 0) {
+        suggestions.push(`❗ 你有 <strong>${notMastered}</strong> 道错题仍未掌握，建议优先复习这些题目。`);
+    }
+    
+    if (reviewing > 0) {
+        suggestions.push(`🔄 有 <strong>${reviewing}</strong> 道错题正在复习中，记得定期回顾巩固。`);
+    }
+    
+    if (mastered > 0) {
+        const rate = ((mastered / total) * 100).toFixed(1);
+        suggestions.push(`🎉 你已经掌握了 <strong>${mastered}</strong> 道错题，掌握率达到 ${rate}%！`);
+    }
+    
+    // 根据知识点分布给出建议
+    if (data.knowledge_stats && Object.keys(data.knowledge_stats).length > 0) {
+        const sorted = Object.entries(data.knowledge_stats).sort((a, b) => b[1] - a[1]);
+        if (sorted.length > 0) {
+            suggestions.push(`📌 <strong>${sorted[0][0]}</strong> 是你的薄弱知识点，建议重点加强练习。`);
+        }
+    }
+    
+    // 总体建议
+    if (mastered / total < 0.3) {
+        suggestions.push('💪 刚开始学习，继续加油！建议每天复习 3-5 道错题。');
+    } else if (mastered / total < 0.7) {
+        suggestions.push('👍 学习进度不错，继续保持！建议每周进行一次全面复习。');
+    } else {
+        suggestions.push('🌟 掌握程度很好！建议定期回顾已掌握的题目，防止遗忘。');
+    }
+    
+    container.innerHTML = suggestions.map(s => `<p style="margin-bottom: 10px; line-height: 1.6;">${s}</p>`).join('');
+}
+
+// 页面加载时获取数据
+loadStats();
+</script>
+{% endblock %}
