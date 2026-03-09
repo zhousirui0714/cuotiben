@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 数据库设置指南</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .step h3 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .success {
+            color: #48bb78;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ed8936;
+            font-weight: bold;
+        }
+        .error {
+            color: #f56565;
+            font-weight: bold;
+        }
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #764ba2;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .status.pending {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+        }
+        .status.completed {
+            background: #d4edda;
+            border: 1px solid #28a745;
+        }
+        .deploy-info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Supabase 数据库设置指南</h1>
+        
+        <div class="deploy-info">
+            <h3>🌐 EdgeOne 部署信息</h3>
+            <p><strong>部署状态:</strong> 已准备就绪</p>
+            <p><strong>主文件:</strong> index.html (当前页面)</p>
+            <p><strong>部署方式:</strong> 静态网站托管</p>
+        </div>
+
+        <div class="status pending">
+            <strong>当前状态:</strong> 数据库已连接，但需要创建表
+        </div>
+
+        <div class="step">
+            <h3>📋 项目信息</h3>
+            <ul>
+                <li><strong>项目URL:</strong> https://swrozkxuccgvktyklodo.supabase.co</li>
+                <li><strong>连接状态:</strong> <span class="success">✅ 已连接</span></li>
+                <li><strong>表状态:</strong> <span class="warning">⚠️ 需要创建</span></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>🔧 创建数据库表</h3>
+            <p>由于使用的是 anon key，需要在 Supabase 控制台手动创建表：</p>
+            
+            <ol>
+                <li>
+                    <strong>访问 Supabase 控制台</strong><br>
+                    <a href="https://swrozkxuccgvktyklodo.supabase.co" target="_blank" class="button">打开控制台</a>
+                </li>
+                
+                <li>
+                    <strong>打开 SQL 编辑器</strong><br>
+                    点击左侧菜单的 <strong>"SQL Editor"</strong>
+                </li>
+                
+                <li>
+                    <strong>创建新查询</strong><br>
+                    点击 <strong>"New query"</strong> 按钮
+                </li>
+                
+                <li>
+                    <strong>执行 SQL 脚本</strong><br>
+                    复制并执行以下 SQL 语句：
+                </li>
+            </ol>
+
+            <div class="code-block">
+-- 创建用户表
+CREATE TABLE IF NOT EXISTS users (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 创建文章表
+CREATE TABLE IF NOT EXISTS posts (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 创建评论表
+CREATE TABLE IF NOT EXISTS comments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    content TEXT NOT NULL,
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>📊 数据库表结构</h3>
+            
+            <h4>users 表</h4>
+            <ul>
+                <li>id (UUID, 主键)</li>
+                <li>email (VARCHAR, 唯一)</li>
+                <li>username (VARCHAR, 唯一)</li>
+                <li>password_hash (VARCHAR)</li>
+                <li>created_at (TIMESTAMP)</li>
+                <li>updated_at (TIMESTAMP)</li>
+            </ul>
+
+            <h4>posts 表</h4>
+            <ul>
+                <li>id (UUID, 主键)</li>
+                <li>title (VARCHAR)</li>
+                <li>content (TEXT)</li>
+                <li>user_id (UUID, 外键)</li>
+                <li>created_at (TIMESTAMP)</li>
+                <li>updated_at (TIMESTAMP)</li>
+            </ul>
+
+            <h4>comments 表</h4>
+            <ul>
+                <li>id (UUID, 主键)</li>
+                <li>content (TEXT)</li>
+                <li>post_id (UUID, 外键)</li>
+                <li>user_id (UUID, 外键)</li>
+                <li>created_at (TIMESTAMP)</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>✅ 验证设置</h3>
+            <p>创建表后，运行以下命令验证连接：</p>
+            <div class="code-block">
+python setup_database.py
+            </div>
+            <p>如果看到 <span class="success">"数据库连接成功！"</span> 的消息，说明设置完成。</p>
+        </div>
+
+        <div class="step">
+            <h3>📝 使用示例</h3>
+            <div class="code-block">
+from supabase import create_client
+
+# 连接到数据库
+supabase = create_client(
+    "https://swrozkxuccgvktyklodo.supabase.co",
+    "your-anon-key"
+)
+
+# 插入数据
+data = {"email": "test@example.com", "username": "testuser", "password_hash": "123"}
+result = supabase.table('users').insert(data).execute()
+
+# 查询数据
+users = supabase.table('users').select("*").execute()
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>📁 项目文件</h3>
+            <ul>
+                <li><strong>index.html</strong> - 主页面 (当前页面)</li>
+                <li><strong>setup_database.py</strong> - 数据库连接脚本</li>
+                <li><strong>create_tables.sql</strong> - SQL 建表脚本</li>
+                <li><strong>example_usage.py</strong> - 使用示例</li>
+                <li><strong>README.md</strong> - 项目说明</li>
+                <li><strong>EDGEONE_DEPLOYMENT.md</strong> - EdgeOne 部署指南</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>🔧 EdgeOne 部署指南</h3>
+            <p><strong>部署步骤:</strong></p>
+            <ol>
+                <li>登录 EdgeOne 控制台</li>
+                <li>添加站点并配置域名</li>
+                <li>上传 index.html 文件</li>
+                <li>配置 HTTPS 和 CDN</li>
+                <li>访问你的域名查看效果</li>
+            </ol>
+            <p>详细部署说明请参考 <strong>EDGEONE_DEPLOYMENT.md</strong> 文件。</p>
+        </div>
+
+        <div class="step">
+            <h3>🔐 安全提示</h3>
+            <ul>
+                <li>当前使用的是 anon key，适合公开访问</li>
+                <li>对于管理员操作，建议使用 service_role key</li>
+                <li>建议启用行级安全性 (RLS) 保护数据</li>
+                <li>在 EdgeOne 中配置 WAF 防护</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
